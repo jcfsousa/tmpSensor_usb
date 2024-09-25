@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tmplab1"
+version = "1.0.0"
+description = "Read temperature and log from the TEMPer1F USB temperature sensor."
+authors = [{ name = "José Sousa", email = "jose.sousa@coimbra.lip.pt" }]
+
+[tool.setuptools.packages]
+find = {}

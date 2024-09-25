@@ -1,0 +1,5 @@
+Metadata-Version: 2.1
+Name: tmplab1
+Version: 1.0.0
+Summary: Read temperature and log from the TEMPer1F USB temperature sensor.
+Author-email: José Sousa <jose.sousa@coimbra.lip.pt>

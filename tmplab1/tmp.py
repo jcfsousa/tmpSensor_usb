@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 from matplotlib.ticker import MaxNLocator
 from datetime import datetime, timedelta
+import random
 
 
 class _TemperWindows:
@@ -46,7 +47,7 @@ class _TemperWindows:
 
         devices = hid.HidDeviceFilter(vendor_id=_vendor_id,product_id=_product_id).get_devices()
 
-        if device_name.startswith("as"):
+        if not device_name.startswith("TEMP"):
             return None
         
         device = devices[0]
@@ -129,13 +130,18 @@ def acquire_temperature(frequency, duration):
 
     device_info = get_tmp_info()
 
-    for path, device in device_info.items():
-        if device['product'].startswith("TEMP"):
-            device_name = device['product']
-            vendor_id = device['vendorid']
-            product_id = device['productid']
-            break  #just allow 1x temp sensor
-    
+    if len(device_info) == 0:
+        print("\n   [ERROR] No TEMP sensor found. Please plug-in the device and restart program.")
+        os._exit(1)
+        return
+    else:
+        for path, device in device_info.items():
+            if device['product'].startswith("TEMP"):
+                device_name = device['product']
+                vendor_id = device['vendorid']
+                product_id = device['productid']
+                break  #just allow 1x temp sensor
+
     print(f"\n    Temperature Sensor: {device_name}")
 
     time.sleep(1)
@@ -147,6 +153,10 @@ def acquire_temperature(frequency, duration):
             timestamp = datetime.now().strftime("%H:%M:%S")
             temperature_data.append((timestamp, temperature))
             print(f"    Timestamp: {timestamp}, Temperature: {temperature:.2f} °C")
+        else:
+            print("No TEMP sensor found. Please plug-in the device.")
+            os._exit(1)
+            return None
         time.sleep(period)
     last_aq_tmp.append(temperature)
     list_time_end_aq.append(timestamp)
@@ -201,17 +211,22 @@ def plot_data():
     ax = plt.gca()  
     ax.xaxis.set_major_locator(MaxNLocator(nbins=10)) 
 
-    plt.ylim(min(temperatures) - 0.1*(abs(max(temperatures) - min(temperatures))), max(temperatures) + 0.1*(abs(max(temperatures) - min(temperatures))))
+    y_min = min(temperatures) - 0.1*(abs(max(temperatures) - min(temperatures)))
+    y_max = max(temperatures) + 0.1*(abs(max(temperatures) - min(temperatures)))
+
+    plt.ylim(y_min, y_max)
     plt.xticks(rotation=45)
     plt.xlabel('Timestamp')
     plt.ylabel('Temperature (°C)')
     plt.title('Temperature Acquisition')
     plt.tight_layout()
     plt.grid()
+    
     for i in range(len(list_time_end_aq)-1):
+        y_pos_random = float(round(random.uniform(0.15, 0.85), 2))
         plt.axvline(x = list_time_end_aq[i], color = 'r')
-        plt.text(list_time_end_aq[i], min(temperatures) + 0.95 * (abs(max(temperatures) - min(temperatures))), f'End: {list_time_end_aq[i]}', verticalalignment='bottom', color='r' )
-        plt.text(list_time_end_aq[i], min(temperatures) + 0.85 * (abs(max(temperatures) - min(temperatures))), f'New Start: {list_time_begin_aq[i + 1]}', verticalalignment='bottom', color='r' )
+        plt.text(list_time_end_aq[i], y_min + y_pos_random * (abs(max(temperatures) - min(temperatures))), f'End: {list_time_end_aq[i]}', verticalalignment='bottom', color='r' )
+        plt.text(list_time_end_aq[i], y_min + (y_pos_random-0.1) * (abs(max(temperatures) - min(temperatures))), f'New Start: {list_time_begin_aq[i + 1]}', verticalalignment='bottom', color='r' )
         i += 1
     #print(list_time_end_aq[len(list_time_end_aq)-1])
     plot_file_path = os.path.join(directory_name, f'temperature_log_{datetime.now().strftime("%Hh-%Mmin-%Ss")}.png')

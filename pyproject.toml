@@ -7,6 +7,14 @@ name = "tmplab1"
 version = "1.0.0"
 description = "Read temperature and log from the TEMPer1F USB temperature sensor."
 authors = [{ name = "José Sousa", email = "jose.sousa@coimbra.lip.pt" }]
+dependencies = [
+    "pywinusb",
+    "matplotlib",
+    "threading",  
+    "csv",        
+    "datetime",  
+    "os"          
+]
 
 [tool.setuptools.packages]
 find = {}

@@ -8,8 +8,6 @@ import os
 from matplotlib.ticker import MaxNLocator
 from datetime import datetime, timedelta
 
-VENDOR_ID = 0x1A86
-PRODUCT_ID = 0xE025
 
 class _TemperWindows:
     def __init__(self):
@@ -21,38 +19,52 @@ class _TemperWindows:
         self.read_data_received = True
 
     @staticmethod
-    def convert_data_to_temperature(data):
-        return float(data[3] * 256 + data[4]) / 100
+    def convert_data_to_temperature(data, device_name):
+        device_name_lowerCase = device_name.lower()
+        #print(device_name)
+        #print(device_name_lowerCase)
 
-    def get_temperature(self, thermometer_index=0):
+        if device_name_lowerCase == "temper1f":
+            #print(data)
+            return float(data[3] * 256 + data[4]) / 100
+        
+        elif device_name_lowerCase == "temper1f_v1.3":
+            #print(data)
+            return float(data[3] * 256 + data[6]) / 256  
+        
+        elif device_name_lowerCase == "temper2":
+            #print(data)
+            return float(data[3] * 256 + data[4]) / 100
+        
+        else:
+            return 1
+
+
+    def get_temperature(self, device_name, _vendor_id, _product_id):
         self.read_data = None
         self.read_data_received = False
 
-        devices = hid.HidDeviceFilter(vendor_id=VENDOR_ID, product_id=PRODUCT_ID).get_devices()
+        devices = hid.HidDeviceFilter(vendor_id=_vendor_id,product_id=_product_id).get_devices()
 
-        if thermometer_index > len(devices) - 1:
+        if device_name.startswith("as"):
             return None
-
-        device = devices[thermometer_index]
+        
+        device = devices[0]
 
         try:
             device.open()
             device.set_raw_data_handler(self.raw_data_handler)
-
             write_data = [0x00, 0x01, 0x80, 0x33, 0x01, 0x00, 0x00, 0x00, 0x00]
-
-            # Reset read_data_received before sending our data
             self.read_data_received = False
-
             device.send_output_report(write_data)
 
-            # Wait for read data to be received
-            sleep_amount = 0.01  # 0.01 to start with
+            sleep_amount = 0.1 
             while not self.read_data_received:
                 time.sleep(sleep_amount)
-                sleep_amount = 0.05  # 0.05 after to avoid causing high cpu
+                sleep_amount = 0.5  # 0.05 to avoid causing high cpu
+                device.set_raw_data_handler(self.raw_data_handler) #need to call here because we catch the last 8bytes - for Temper2 the external tmp comes on the 2ns 8byte transmission
 
-            return self.convert_data_to_temperature(self.read_data)
+            return self.convert_data_to_temperature(self.read_data, device_name)
         finally:
             device.close()
 
@@ -70,24 +82,67 @@ directory_name = ""
 log_file_path = ""
 
 
-def get_temperature(thermometer_index=0):
+def get_usb_device_info(device):
+    '''Get basic information for a USB device using pywinusb'''
+    info = dict()
+    vendorid = device.vendor_id
+    productid = device.product_id
+    nameFull = device.product_name
+    nameLower = nameFull.lower()
+
+    if nameLower.startswith('temp'):
+        if not vendorid or not productid:
+            return None
+        info['vendorid'] = vendorid
+        info['productid'] = productid
+        info['manufacturer'] = device.vendor_name
+        info['product'] = device.product_name
+        info['busnum'] = "N/A"  # Not available with pywinusb
+        info['devnum'] = device.device_path
+        return info
+    else:
+        return None
+
+def get_tmp_info():
+    device_dict = dict()
+    devices = hid.HidDeviceFilter().get_devices() # get all usb devices connected to PC
+    for device in devices:
+        device_info = get_usb_device_info(device)
+        if device_info is not None:
+            device_info['port'] = 'N/A'
+            device_dict[device.device_path] = device_info
+    #print(device_dict)
+    return device_dict
+
+def get_temperature(device_name, vendor_id, product_id):
     """Gets the temperature from a Temper USB thermometer."""
     global _temper_windows  
     if _temper_windows is None:
         _temper_windows = _TemperWindows()
-    return _temper_windows.get_temperature(thermometer_index)
+    return _temper_windows.get_temperature(device_name, vendor_id, product_id)
 
 
 def acquire_temperature(frequency, duration):
     """Acquires temperature at a specified frequency for a certain duration."""
     global logging, temperature_data, list_time_end_aq, list_time_begin_aq, last_aq_tmp
     period = 1/frequency
+
+    device_info = get_tmp_info()
+
+    for path, device in device_info.items():
+        if device['product'].startswith("TEMP"):
+            device_name = device['product']
+            vendor_id = device['vendorid']
+            product_id = device['productid']
+            break  #just allow 1x temp sensor
+    
+    print(f"\n    Temperature Sensor: {device_name}")
+
     time.sleep(1)
-    print("\n")
     initial_time = datetime.now().strftime("%H:%M:%S")
     list_time_begin_aq.append(initial_time)
     while logging: #and (time.time() - start_time) <= duration
-        temperature = get_temperature()
+        temperature = get_temperature(device_name, vendor_id, product_id)
         if temperature is not None:
             timestamp = datetime.now().strftime("%H:%M:%S")
             temperature_data.append((timestamp, temperature))

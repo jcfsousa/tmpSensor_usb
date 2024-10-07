@@ -9,6 +9,7 @@
 
 ## Prerequisites
 
+- This script only works on windows since we are using the pywinusb library
 - Python 3.10 or later
 - Libraries: `pywinusb`, `matplotlib`
 
@@ -23,13 +24,6 @@ Run the following command in the project root directory:
 py -m pip install -e .
 ```
 
-###Linux:
-Run the following command in the project root directory:
-
-```
-pip install -e .
-```
-
 ## How to run 
 
 - Navigate to the root directory of the project, i.e., /PATH_TO_DIRECTORY/tmplab1/.
@@ -39,11 +33,6 @@ pip install -e .
 py tmp.py
 ```
 
-- **On Linux**: Open a temrinal in that directory and run:
-
-```
-python3 tmp.py
-```
 
 ## Commands
 - **start**: Starts data acquisition with a 1Hz frequency. Data is stored in RAM and saved to disk only after the stop command.
